@@ -1,0 +1,133 @@
+# All tunables live here. No magic numbers in code.
+
+paths:
+  root: "C:/Users/samar/ahc"
+  train: "train"
+  test: "test"
+  cache: "cache"
+  runs: "runs"
+  staging: "staging"
+
+# Five published Drive mirrors of the same pack. Mirror 1 is already downloaded, verified
+# complete (3173/3173 train + 34/34 test, 13.9 GB, none missing or undecodable).
+# The rest are redundancy. Use `python -m ahc.ingest probe --mirror N` before pulling one:
+# it compares CSVs only (a few KB) and reports copy / shard / corrected-annotations.
+mirrors:
+  1: "local"
+  2: "https://drive.google.com/drive/folders/13E_CePn14lcbwMA_yZEiHpAVx6i09UIG"
+  3: "https://drive.google.com/drive/folders/13V8JqgZRMzn2TCF0HTsCqVgUH0UOMmpb"
+  4: "https://drive.google.com/drive/folders/1fS_i7QKXRDI6mnaI6UWqYzKSOYWG8rFv"
+  5: "https://drive.google.com/drive/folders/1efhUZhB6Kyvpw3RulZJSwd0brb8KhuZf"
+
+classes:
+  - traffic_accident
+  - traffic_congestion
+  - stalled_or_broken_down_vehicle
+  - vehicle_blocking_traffic
+  - fire
+  - smoke
+  - waterlogging_or_flood
+  - wrong_way_driving
+  - road_spill_or_debris
+  - fighting_or_violence
+  - loitering_or_suspicious_presence
+# index 11 == "normal"; never emitted as a class_name in the submission.
+
+features:
+  encoder: siglip2            # siglip2 | clip_b16 | dinov2
+  target_fps: 2.0
+  batch: 64
+  dtype: float16
+
+splice:                       # §3 synthetic training videos
+  enabled: true
+  val_donor_frac: 0.2
+  seed: 0
+  videos_per_epoch: 4000
+  l2_duration_sec: 240.0
+  l3_duration_min_sec: 300.0
+  l3_duration_max_sec: 650.0
+  events_per_video: [1, 6]
+  regular_pitch_prob: 0.4     # fraction built on a fixed pitch, like T025/T028
+  same_scene_prob: 0.25       # seamless events, so the head can't rely on seams alone
+  pure_normal_frac: 0.2       # k=0 videos, for false-positive calibration
+  min_gap_sec: 5.0
+
+model:
+  clip_head:
+    hidden: 512
+    dropout: 0.1
+  temporal_head:
+    d_model: 256
+    conv_kernel: 5
+    layers: 2
+    heads: 4
+    dropout: 0.1
+    use_delta: true
+
+train:
+  epochs: 8
+  lr: 3.0e-4
+  weight_decay: 0.01
+  batch: 16
+  class_weight: inv_sqrt      # 1/sqrt(count), normalized
+  boundary_weight: 0.3
+  amp: true
+  holdout_min_recall: 0.25       # R4 checkpoint eligibility: never select silence
+  holdout_min_emitted: 40        # require a stable event sample before comparing precision
+
+augment:
+  crop_min_frac: 0.5
+  frame_dropout: 0.1
+  long_holdout_min_dur_sec: 30.0
+
+segment:                      # defaults only — calibrate.py sweeps these per level
+  smooth_win: 5
+  hi: 0.5
+  lo: 0.35
+  min_dur_sec: 2.0
+  max_gap_sec: 4.0
+  expand: 1.15
+  snap_max_shift_frames: 6
+  changepoint_k: 40
+
+decide:
+  l1_normal_threshold: 0.4    # R3b public-dev sweep: D1 18.23, versus 17.19 at 0.5
+  l2_normal_threshold: 0.5
+  l3_normal_threshold: 0.5
+
+fallback:
+  # R5 public-dev sensitivity sweep: min total 48.20; snap ablation +1.64.
+  window_sec: 3.0
+  stride_sec: 1.0
+  threshold: 0.4
+  expand: 1.25
+  snap: true
+  min_interval_sec: 1.0
+  batch: 64
+
+scorer:
+  iou_thr: 0.5
+  w_l2: [0.2, 0.5, 0.3]       # (alert, match, timing)
+  w_l3: [0.2, 0.4, 0.4]       # timing weighs more at L3
+  sensitivity_grid:
+    l2: [[0.2, 0.5, 0.3], [0.3, 0.4, 0.3], [0.34, 0.33, 0.33]]
+    l3: [[0.2, 0.4, 0.4], [0.2, 0.3, 0.5], [0.3, 0.3, 0.4]]
+
+weights:                      # official difficulty weights
+  d1: 25
+  d2: 35
+  d3: 40
+
+submission:
+  schema_version: "1.0"
+  model_name: "ahc-frozen-encoder-temporal-head"
+  hardware: "1x RTX 4050 Laptop 6GB"
+  max_bytes: 5242880
+  explanation_min_chars: 20
+  explanation_max_chars: 500
+
+explain:
+  mode: template              # template | vlm
+  vlm_model: "Qwen/Qwen2.5-VL-3B-Instruct"
+  vlm_4bit: true

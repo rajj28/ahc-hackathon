@@ -1,0 +1,26 @@
+# Local environments and credentials
+.venv/
+.env
+*.env
+*.key
+
+# Dataset, feature cache, generated submissions, checkpoints, and staging data
+cache/
+train/
+test/
+runs/
+staging/
+*.npz
+
+# Local reference material and captures; the repository contains reproducible source/docs.
+*.pdf
+Screenshot*.png
+
+# Python/editor noise
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.vscode/
+.idea/
