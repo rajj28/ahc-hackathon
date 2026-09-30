@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video Anomaly Detection</title>
+<meta name="description" content="Real-time video anomaly detection on a 6 GB laptop GPU: frozen SigLIP2 encoder + trained attention head. 48.20/100 on the AHC dev pack at 38x real time.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fbfbfa;--surface:#ffffff;--ink:#16181d;--muted:#5d6470;--line:#e4e6ea;
+  --accent:#1f6feb;--good:#1a7f37;--warn:#9a6700;--bad:#cf222e;--chip:#f1f3f6;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1116;--surface:#161b22;--ink:#e6edf3;--muted:#9aa4b2;--line:#2a313c;
+  --accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--chip:#1f2630;}}
+:root[data-theme="dark"]{--bg:#0e1116;--surface:#161b22;--ink:#e6edf3;--muted:#9aa4b2;--line:#2a313c;
+  --accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--chip:#1f2630;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 Inter,system-ui,sans-serif}
+main{max-width:1040px;margin:0 auto;padding:56px 16px 80px}
+h1{font-size:clamp(28px,4.6vw,44px);line-height:1.12;letter-spacing:-.02em;margin:10px 0 16px}
+h2{font-size:22px;margin:64px 0 14px;letter-spacing:-.01em}
+p{color:var(--muted);max-width:720px}
+.kicker{font:500 13px/1 "JetBrains Mono",monospace;color:var(--accent);letter-spacing:.04em;text-transform:uppercase}
+.links{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}
+.btn{display:inline-block;padding:10px 16px;border-radius:8px;border:1px solid var(--line);color:var(--ink);text-decoration:none;font-weight:500;background:var(--surface)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:36px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.stat b{display:block;font-size:28px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;overflow-x:auto}
+svg text{font-family:Inter,system-ui,sans-serif}
+.diagram .box{fill:var(--surface);stroke:var(--line)}
+.diagram .hl{fill:var(--chip);stroke:var(--accent)}
+.diagram .t{fill:var(--ink);font-size:13px;font-weight:600}
+.diagram .s{fill:var(--muted);font-size:11px}
+.diagram .a{stroke:var(--muted);stroke-width:1.4;fill:none;marker-end:url(#arr)}
+.diagram #arr path{fill:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500;font-size:13px}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+img{max-width:100%;height:auto;border-radius:8px;background:#fff;display:block}
+.tag{font:500 12px "JetBrains Mono",monospace;padding:2px 8px;border-radius:99px;background:var(--chip);white-space:nowrap}
+.tag.good{color:var(--good)}.tag.bad{color:var(--bad)}.tag.warn{color:var(--warn)}
+code,pre{font-family:"JetBrains Mono",monospace;font-size:13px}
+pre{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto;margin:0}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+footer{margin-top:72px;color:var(--muted);font-size:14px;border-top:1px solid var(--line);padding-top:20px}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+  <div class="kicker">AHC Visual Intelligence Hackathon</div>
+  <h1>Real-time video anomaly detection on a 6&nbsp;GB laptop GPU</h1>
+  <p>Traffic and CCTV footage in; <em>what</em> went wrong (11 classes, from accidents and fire to wrong-way driving and fights) and <em>when</em> it happened out. The rules ban hosted models at runtime. So a frozen SigLIP2 encoder and a ~0.4M-parameter trained head run on the device, about 38× faster than real time.</p>
+  <div class="links">
+    <a class="btn primary" href="https://github.com/rajj28/ahc-hackathon">Source on GitHub</a>
+    <a class="btn" href="https://github.com/rajj28/ahc-hackathon/blob/main/ARCHITECTURE.md">Architecture notes</a>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b>48.20<small style="font-size:16px;color:var(--muted)"> / 100</small></b><span>public 34-video dev pack</span></div>
+    <div class="stat"><b>0.0261</b><span>real-time factor (3,391 s of video in 88.4 s)</span></div>
+    <div class="stat"><b>6 GB</b><span>RTX 4050 laptop GPU, fp16</span></div>
+    <div class="stat"><b>0</b><span>hosted model calls at runtime</span></div>
+  </div>
+
+  <h2>System architecture</h2>
+  <div class="card diagram">
+    <svg viewBox="0 0 980 300" width="100%" style="min-width:760px" role="img" aria-label="Pipeline: MP4 is decoded at 2 fps, embedded by frozen SigLIP2 into a cache; Level 1 runs ClipHead on the whole clip, Levels 2 and 3 run ClipHead on sliding windows then merge, expand and snap to changepoints; both paths get a template explanation and pass a schema validator to produce submission JSON.">
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker></defs>
+      <rect class="box" x="10" y="120" width="120" height="60" rx="8"/><text class="t" x="70" y="146" text-anchor="middle">MP4 + manifest</text><text class="s" x="70" y="164" text-anchor="middle">L1 · L2 · L3 videos</text>
+      <rect class="box" x="160" y="120" width="120" height="60" rx="8"/><text class="t" x="220" y="146" text-anchor="middle">Decode 2 fps</text><text class="s" x="220" y="164" text-anchor="middle">OpenCV</text>
+      <rect class="hl" x="310" y="120" width="130" height="60" rx="8"/><text class="t" x="375" y="146" text-anchor="middle">Frozen SigLIP2</text><text class="s" x="375" y="164" text-anchor="middle">ViT-B/16 · fp16</text>
+      <rect class="box" x="470" y="120" width="110" height="60" rx="8"/><text class="t" x="525" y="146" text-anchor="middle">Embedding cache</text><text class="s" x="525" y="164" text-anchor="middle">.npz · resumable</text>
+      <rect class="hl" x="620" y="40" width="160" height="60" rx="8"/><text class="t" x="700" y="66" text-anchor="middle">L1 · ClipHead</text><text class="s" x="700" y="84" text-anchor="middle">whole clip → class / normal</text>
+      <rect class="hl" x="620" y="200" width="160" height="80" rx="8"/><text class="t" x="700" y="224" text-anchor="middle">L2/L3 · windowed</text><text class="s" x="700" y="242" text-anchor="middle">3 s windows · 1 s stride</text><text class="s" x="700" y="258" text-anchor="middle">merge · expand 1.25×</text><text class="s" x="700" y="274" text-anchor="middle">snap to changepoints</text>
+      <rect class="box" x="810" y="120" width="160" height="60" rx="8"/><text class="t" x="890" y="146" text-anchor="middle">Explain + validate</text><text class="s" x="890" y="164" text-anchor="middle">→ submission.json</text>
+      <path class="a" d="M130 150 H158"/><path class="a" d="M280 150 H308"/><path class="a" d="M440 150 H468"/>
+      <path class="a" d="M580 140 C600 140 600 70 618 70"/><path class="a" d="M580 160 C600 160 600 240 618 240"/>
+      <path class="a" d="M780 70 C800 70 795 140 808 140"/><path class="a" d="M780 240 C800 240 795 160 808 160"/>
+    </svg>
+  </div>
+
+  <h2>Measured results</h2>
+  <div class="card"><img src="images/dev-score.png" alt="Bar chart: Level 1 scored 18.23 of 25, Level 2 21.97 of 35, Level 3 8.00 of 40; ablation: with changepoint snap 48.20, without 46.56, full-interval reclassify 45.46" loading="lazy"></div>
+  <p>Level 2 found 5 of 18 events. On video T028 it matched all four with IoUs 0.87, 0.67, 0.64 and 0.67. Over the scorer-sensitivity grid the result ranges from 48.20 to 54.49 (median 50.49), and a change had to raise the grid <em>minimum</em> before it shipped.</p>
+  <div class="card" style="margin-top:16px"><img src="images/runtime.png" alt="Bar chart: 3391 seconds of video processed in 88.36 seconds, RTF 0.0261" loading="lazy"></div>
+
+  <h2>What was tried and rejected</h2>
+  <div class="card">
+  <table>
+    <tr><th>Experiment</th><th>Measured outcome</th><th>Decision</th></tr>
+    <tr><td>Temporal Conv/Transformer head trained on synthetic spliced sequences</td><td class="n">P 0.39% · R 5.8% · FA on 39.3% of normal videos</td><td><span class="tag bad">rejected</span></td></tr>
+    <tr><td>Full-interval reclassification of merged windows</td><td class="n">45.46 grid-min (vs 48.20)</td><td><span class="tag warn">disabled</span></td></tr>
+    <tr><td>768-config Level-3 window/threshold search</td><td class="n">best = 48.20 (no gain)</td><td><span class="tag warn">no change</span></td></tr>
+    <tr><td>Changepoint edge snapping</td><td class="n">+1.64 on grid-min</td><td><span class="tag good">shipped</span></td></tr>
+  </table>
+  </div>
+
+  <h2>Output</h2>
+  <div class="grid2">
+    <div>
+      <p style="margin-top:0">One JSON entry per video. Normal videos are an empty event list, Level-1 events carry no timestamps, and every entry records its own runtime. The schema is enforced in <code>types.py</code> and checked by <code>validate.py</code> before every upload.</p>
+      <p>Explanations come from deterministic templates, so the reasoning bonus never costs a network call or latency.</p>
+    </div>
+<pre>{
+  "video_id": "E014",
+  "events": [{
+    "class_name": "smoke",
+    "start_time_sec": 42.0,
+    "end_time_sec": 57.5,
+    "score": &lt;head confidence&gt;,
+    "explanation": "Thick smoke observed
+                    from 42.0s to 57.5s."
+  }],
+  "runtime_metadata": {
+    "frames_processed": …,
+    "chunks_processed": …,
+    "end_to_end_internal_time_ms": …
+  }
+}</pre>
+  </div>
+  <p style="font-size:14px">Schema example. The times show the template format and are not a recorded prediction.</p>
+
+  <h2>Why there is no upload-a-video demo</h2>
+  <p>The detector needs a CUDA GPU, the trained head checkpoint and the competition footage, which isn't mine to redistribute. None of these fits on free hosting. Every number on this page is a measured result from <a href="https://github.com/rajj28/ahc-hackathon/blob/main/ARCHITECTURE.md">ARCHITECTURE.md</a>. Nothing is simulated.</p>
+
+  <footer>Python · PyTorch · Transformers (SigLIP2) · OpenCV · NumPy · pandas · scikit-learn — <a href="https://github.com/rajj28">github.com/rajj28</a></footer>
+</main>
+</body>
+</html>

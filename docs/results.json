@@ -1,0 +1,11 @@
+{
+  "_source": "Measured numbers recorded in ARCHITECTURE.md (public 34-video dev pack, scored with src/ahc/scorer.py).",
+  "dev_score": {"total": 48.20, "D1": 18.23, "D2": 21.97, "D3": 8.00},
+  "max_marks": {"D1": 25, "D2": 35, "D3": 40},
+  "sensitivity_grid": {"min": 48.20, "median": 50.49, "max": 54.49},
+  "ablation_grid_min": {"with changepoint snap": 48.20, "without snap": 46.56, "full-interval reclassify": 45.46},
+  "runtime": {"wall_s": 88.36, "video_s": 3391.36, "rtf": 0.0261, "median_ms_per_video": 216.59,
+              "longest_clip": {"id": "T033", "video_s": 629, "wall_s": 20.1}},
+  "l2_events_found": {"found": 5, "total": 18},
+  "rejected_experiment_temporal_head": {"precision_pct": 0.39, "recall_pct": 5.8, "false_alarm_on_normal_pct": 39.3}
+}

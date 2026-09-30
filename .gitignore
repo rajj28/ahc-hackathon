@@ -24,3 +24,6 @@ __pycache__/
 .mypy_cache/
 .vscode/
 .idea/
+
+# Vercel link state
+.vercel/
